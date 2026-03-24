@@ -63,8 +63,7 @@ def count_tesla_primary():
 
 @app.route("/count-bmw-secondary", methods=["GET"])
 def count_bmw_secondary():
-    secondary_collection = cars.with_options(read_preference=ReadPreference.SECONDARY)
-    total = secondary_collection.count_documents({"Make": "BMW"})
+    total = cars.with_options(read_preference=ReadPreference.SECONDARY).count_documents({"Make": "BMW"})
     return jsonify({"count": total}), 200
 
 
