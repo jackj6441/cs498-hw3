@@ -5,7 +5,10 @@ from pymongo import MongoClient, ReadPreference, WriteConcern
 
 app = Flask(__name__)
 
-mongo_uri = os.getenv("MONGO_URI", "mongodb+srv://jackj6_db_user:dyt2Z6ctoqa2S8WT@cluster0.wcvw3dm.mongodb.net/?appName=Cluster0")
+mongo_uri = os.getenv(
+    "MONGO_URI",
+    "mongodb+srv://jackj6_db_user:dyt2Z6ctoqa2S8WT@cluster0.wcvw3dm.mongodb.net/?appName=Cluster0"
+)
 db_name = "ev_db"
 collection_name = "vehicles"
 
@@ -30,11 +33,10 @@ def insert_fast():
 
     body = _clean_make(body)
 
-    quick_collection = cars.with_options(write_concern=WriteConcern(w=1))
-    insert_result = quick_collection.insert_one(body)
-    new_id = str(insert_result.inserted_id)
+    fast_collection = cars.with_options(write_concern=WriteConcern(w=1))
+    result = fast_collection.insert_one(body)
 
-    return jsonify({"inserted_id": new_id}), 200
+    return jsonify({"inserted_id": str(result.inserted_id)}), 200
 
 
 @app.route("/insert-safe", methods=["POST"])
@@ -46,30 +48,23 @@ def insert_safe():
 
     body = _clean_make(body)
 
-    safer_collection = cars.with_options(
-        write_concern=WriteConcern(w="majority")
-    )
-    saved = safer_collection.insert_one(body)
-    saved_id = str(saved.inserted_id)
+    safe_collection = cars.with_options(write_concern=WriteConcern(w="majority"))
+    result = safe_collection.insert_one(body)
 
-    return jsonify({"inserted_id": saved_id}), 200
+    return jsonify({"inserted_id": str(result.inserted_id)}), 200
 
 
 @app.route("/count-tesla-primary", methods=["GET"])
 def count_tesla_primary():
-    main_reader = cars.with_options(read_preference=ReadPreference.PRIMARY)
-    total = main_reader.count_documents({
-        "$or": [{"Make": "TESLA"}, {"make": "TESLA"}]
-    })
+    primary_collection = cars.with_options(read_preference=ReadPreference.PRIMARY)
+    total = primary_collection.count_documents({"Make": "TESLA"})
     return jsonify({"count": total}), 200
 
 
 @app.route("/count-bmw-secondary", methods=["GET"])
 def count_bmw_secondary():
-    backup_reader = cars.with_options(read_preference=ReadPreference.SECONDARY)
-    total = backup_reader.count_documents({
-        "$or": [{"Make": "BMW"}, {"make": "BMW"}]
-    })
+    secondary_collection = cars.with_options(read_preference=ReadPreference.SECONDARY)
+    total = secondary_collection.count_documents({"Make": "BMW"})
     return jsonify({"count": total}), 200
 
 
@@ -79,6 +74,4 @@ def home():
 
 
 if __name__ == "__main__":
-    host = "0.0.0.0"
-    port = 5000
-    app.run(host=host, port=port, debug=False)
+    app.run(host="0.0.0.0", port=5000, debug=False)
