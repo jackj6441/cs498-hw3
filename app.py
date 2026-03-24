@@ -30,9 +30,7 @@ def insert_fast():
 
     body = _clean_make(body)
 
-    # fast write, not being too fancy here
     quick_collection = cars.with_options(write_concern=WriteConcern(w=1))
-
     insert_result = quick_collection.insert_one(body)
     new_id = str(insert_result.inserted_id)
 
@@ -51,7 +49,6 @@ def insert_safe():
     safer_collection = cars.with_options(
         write_concern=WriteConcern(w="majority")
     )
-
     saved = safer_collection.insert_one(body)
     saved_id = str(saved.inserted_id)
 
@@ -61,41 +58,25 @@ def insert_safe():
 @app.route("/count-tesla-primary", methods=["GET"])
 def count_tesla_primary():
     main_reader = cars.with_options(read_preference=ReadPreference.PRIMARY)
-
-    tesla_filter = {
-    "$or": [
-        {"Make": {"$regex": "^TESLA$", "$options": "i"}},
-        {"make": {"$regex": "^TESLA$", "$options": "i"}},
-    ]
-}
-    total = main_reader.count_documents(tesla_filter)
-
+    total = main_reader.count_documents({
+        "$or": [{"Make": "TESLA"}, {"make": "TESLA"}]
+    })
     return jsonify({"count": total}), 200
 
 
 @app.route("/count-bmw-secondary", methods=["GET"])
 def count_bmw_secondary():
     backup_reader = cars.with_options(read_preference=ReadPreference.SECONDARY)
-
-    bmw_filter = {
-    "$or": [
-        {"Make": {"$regex": "^BMW$", "$options": "i"}},
-        {"make": {"$regex": "^BMW$", "$options": "i"}},
-    ]
-}
-    total = backup_reader.count_documents(bmw_filter)
-
+    total = backup_reader.count_documents({
+        "$or": [{"Make": "BMW"}, {"make": "BMW"}]
+    })
     return jsonify({"count": total}), 200
 
 
 @app.route("/", methods=["GET"])
 def home():
-    # basic heartbeat route
     return jsonify({"message": "API is running"}), 200
 
-
-# old local test
-# app.run(debug=True)
 
 if __name__ == "__main__":
     host = "0.0.0.0"
