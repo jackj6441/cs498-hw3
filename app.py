@@ -62,7 +62,7 @@ def insert_safe():
 def count_tesla_primary():
     main_reader = cars.with_options(read_preference=ReadPreference.PRIMARY)
 
-    tesla_filter = {"make": "TESLA"}
+    tesla_filter = {"Make": "TESLA"}
     total = main_reader.count_documents(tesla_filter)
 
     return jsonify({"count": total}), 200
@@ -72,7 +72,7 @@ def count_tesla_primary():
 def count_bmw_secondary():
     backup_reader = cars.with_options(read_preference=ReadPreference.SECONDARY)
 
-    bmw_filter = {"make": "BMW"}
+    bmw_filter = {"Make": "BMW"}
     total = backup_reader.count_documents(bmw_filter)
 
     return jsonify({"count": total}), 200
