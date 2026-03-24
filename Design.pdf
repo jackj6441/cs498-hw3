@@ -1,0 +1,328 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+2 0 obj
+<< /Length 2842 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 50 740 Tm
+(DESIGN FOR CS 498 HOMEWORK 3) Tj
+1 0 0 1 50 726 Tm
+() Tj
+1 0 0 1 50 712 Tm
+(PART 1: WIDE-COLUMN SCHEMA DESIGN AND SHARDING) Tj
+1 0 0 1 50 698 Tm
+() Tj
+1 0 0 1 50 684 Tm
+(1. PROPOSED ROW KEY) Tj
+1 0 0 1 50 670 Tm
+() Tj
+1 0 0 1 50 656 Tm
+(I would use the following composite row key:) Tj
+1 0 0 1 50 642 Tm
+() Tj
+1 0 0 1 50 628 Tm
+(`bucket#city#make#model_year#vin10`) Tj
+1 0 0 1 50 614 Tm
+() Tj
+1 0 0 1 50 600 Tm
+(Where:) Tj
+1 0 0 1 50 586 Tm
+() Tj
+1 0 0 1 50 572 Tm
+(* `bucket` is a short hash prefix derived from `city + make + vin10` and spread across) Tj
+1 0 0 1 50 558 Tm
+(a fixed number of buckets such as 16.) Tj
+1 0 0 1 50 544 Tm
+(* `city` keeps records for the same city logically grouped.) Tj
+1 0 0 1 50 530 Tm
+(* `make` keeps vehicle brand information near the city partition.) Tj
+1 0 0 1 50 516 Tm
+(* `model_year` helps organize vehicles for common analytical filters.) Tj
+1 0 0 1 50 502 Tm
+(* `vin10` preserves uniqueness at the row level.) Tj
+1 0 0 1 50 488 Tm
+() Tj
+1 0 0 1 50 474 Tm
+(This design avoids hotspotting because high-volume inserts do not all land in one) Tj
+1 0 0 1 50 460 Tm
+(contiguous key range. The hash bucket spreads incoming writes across multiple tablets) Tj
+1 0 0 1 50 446 Tm
+(even when the workload is skewed toward popular values such as `Seattle` or `TESLA`.) Tj
+1 0 0 1 50 432 Tm
+(That improves load balancing and reduces the chance that a single node becomes the) Tj
+1 0 0 1 50 418 Tm
+(write bottleneck.) Tj
+1 0 0 1 50 404 Tm
+() Tj
+1 0 0 1 50 390 Tm
+(The trade-off is query complexity. Since the bucket appears first, a query for one city) Tj
+1 0 0 1 50 376 Tm
+(or one make must fan out across all buckets rather than scanning a single prefix.) Tj
+1 0 0 1 50 362 Tm
+(However, this is still much more efficient than a purely random key because `city`,) Tj
+1 0 0 1 50 348 Tm
+(`make`, and `model_year` remain clustered inside each bucket. In practice, the) Tj
+1 0 0 1 50 334 Tm
+(application can issue parallel scans over the small fixed bucket set. If city-only or) Tj
+1 0 0 1 50 320 Tm
+(make-only queries become dominant, I would add a secondary index table keyed) Tj
+1 0 0 1 50 306 Tm
+(specifically for those access patterns.) Tj
+1 0 0 1 50 292 Tm
+() Tj
+1 0 0 1 50 278 Tm
+(2. COLUMN FAMILY DESIGN) Tj
+1 0 0 1 50 264 Tm
+() Tj
+1 0 0 1 50 250 Tm
+(I would group the EV dataset into the following column families:) Tj
+1 0 0 1 50 236 Tm
+() Tj
+1 0 0 1 50 222 Tm
+(1. `identity`) Tj
+1 0 0 1 50 208 Tm
+(   - `vin10`) Tj
+1 0 0 1 50 194 Tm
+(   - `dol_vehicle_id`) Tj
+1 0 0 1 50 180 Tm
+() Tj
+1 0 0 1 50 166 Tm
+(2. `vehicle_specs`) Tj
+1 0 0 1 50 152 Tm
+(   - `model_year`) Tj
+1 0 0 1 50 138 Tm
+(   - `make`) Tj
+1 0 0 1 50 124 Tm
+(   - `model`) Tj
+1 0 0 1 50 110 Tm
+(   - `electric_vehicle_type`) Tj
+1 0 0 1 50 96 Tm
+(   - `electric_range`) Tj
+1 0 0 1 50 82 Tm
+(   - `base_msrp`) Tj
+ET
+endstream
+endobj
+3 0 obj
+<< /Type /Page /Parent 8 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 2 0 R >>
+endobj
+4 0 obj
+<< /Length 2621 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 50 740 Tm
+() Tj
+1 0 0 1 50 726 Tm
+(3. `location`) Tj
+1 0 0 1 50 712 Tm
+(   - `county`) Tj
+1 0 0 1 50 698 Tm
+(   - `city`) Tj
+1 0 0 1 50 684 Tm
+(   - `state`) Tj
+1 0 0 1 50 670 Tm
+(   - `postal_code`) Tj
+1 0 0 1 50 656 Tm
+(   - `vehicle_location`) Tj
+1 0 0 1 50 642 Tm
+(   - `legislative_district`) Tj
+1 0 0 1 50 628 Tm
+(   - `census_tract`) Tj
+1 0 0 1 50 614 Tm
+() Tj
+1 0 0 1 50 600 Tm
+(4. `programs`) Tj
+1 0 0 1 50 586 Tm
+(   - `cafv_eligibility`) Tj
+1 0 0 1 50 572 Tm
+(   - `electric_utility`) Tj
+1 0 0 1 50 558 Tm
+() Tj
+1 0 0 1 50 544 Tm
+(This grouping improves distributed read performance because Bigtable stores data by) Tj
+1 0 0 1 50 530 Tm
+(column family. Queries that only need vehicle brand, model year, and range can read the) Tj
+1 0 0 1 50 516 Tm
+(`vehicle_specs` family without touching location or utility-related data. Likewise,) Tj
+1 0 0 1 50 502 Tm
+(location-heavy analytical queries can focus on the `location` family. That reduces) Tj
+1 0 0 1 50 488 Tm
+(unnecessary disk I/O, network transfer, and memory pressure on each distributed node.) Tj
+1 0 0 1 50 474 Tm
+() Tj
+1 0 0 1 50 460 Tm
+(3. HASHED SHARD KEY VS. RANGE-BASED SHARD KEY) Tj
+1 0 0 1 50 446 Tm
+() Tj
+1 0 0 1 50 432 Tm
+(HASHED SHARD KEY ON VIN) Tj
+1 0 0 1 50 418 Tm
+() Tj
+1 0 0 1 50 404 Tm
+(Pros:) Tj
+1 0 0 1 50 390 Tm
+() Tj
+1 0 0 1 50 376 Tm
+(* Excellent write distribution across the cluster.) Tj
+1 0 0 1 50 362 Tm
+(* Minimizes hotspotting because adjacent VIN values do not land on the same shard.) Tj
+1 0 0 1 50 348 Tm
+(* Good overall cluster balance for high-ingest workloads.) Tj
+1 0 0 1 50 334 Tm
+() Tj
+1 0 0 1 50 320 Tm
+(Cons:) Tj
+1 0 0 1 50 306 Tm
+() Tj
+1 0 0 1 50 292 Tm
+(* Poor query routing for range queries and filtering by business attributes.) Tj
+1 0 0 1 50 278 Tm
+(* Queries by `Model Year`, `City`, or `Make` often need to scatter to all shards.) Tj
+1 0 0 1 50 264 Tm
+(* Harder to exploit locality for analytical scans.) Tj
+1 0 0 1 50 250 Tm
+() Tj
+1 0 0 1 50 236 Tm
+(RANGE-BASED SHARD KEY ON MODEL YEAR) Tj
+1 0 0 1 50 222 Tm
+() Tj
+1 0 0 1 50 208 Tm
+(Pros:) Tj
+1 0 0 1 50 194 Tm
+() Tj
+1 0 0 1 50 180 Tm
+(* Very efficient routing for year-based queries such as `Model Year >= 2022`.) Tj
+1 0 0 1 50 166 Tm
+(* Keeps nearby years on nearby shards, which helps temporal analytics.) Tj
+1 0 0 1 50 152 Tm
+(* Easier to understand operationally when the workload is naturally time-based.) Tj
+1 0 0 1 50 138 Tm
+() Tj
+1 0 0 1 50 124 Tm
+(Cons:) Tj
+1 0 0 1 50 110 Tm
+() Tj
+1 0 0 1 50 96 Tm
+(* Popular or recent years can become hotspots.) Tj
+1 0 0 1 50 82 Tm
+(* Skewed inserts may overload a subset of shards.) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 8 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 2362 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 50 740 Tm
+(* Rebalancing becomes more likely when new years attract a disproportionate share of) Tj
+1 0 0 1 50 726 Tm
+(writes.) Tj
+1 0 0 1 50 712 Tm
+() Tj
+1 0 0 1 50 698 Tm
+(Overall, a hashed key is better for even cluster performance and write scalability,) Tj
+1 0 0 1 50 684 Tm
+(while a range-based key is better for query locality when the application frequently) Tj
+1 0 0 1 50 670 Tm
+(filters on the shard key itself.) Tj
+1 0 0 1 50 656 Tm
+() Tj
+1 0 0 1 50 642 Tm
+(PART 4: PERFORMANCE ANALYSIS) Tj
+1 0 0 1 50 628 Tm
+() Tj
+1 0 0 1 50 614 Tm
+(BENCHMARK METHOD) Tj
+1 0 0 1 50 600 Tm
+() Tj
+1 0 0 1 50 586 Tm
+(I used `benchmark.py` to send 50 POST requests to `/insert-fast` and 50 POST requests) Tj
+1 0 0 1 50 572 Tm
+(to `/insert-safe`, then computed the average latency for each endpoint.) Tj
+1 0 0 1 50 558 Tm
+() Tj
+1 0 0 1 50 544 Tm
+(Example command:) Tj
+1 0 0 1 50 530 Tm
+() Tj
+1 0 0 1 50 516 Tm
+(```bash) Tj
+1 0 0 1 50 502 Tm
+(python3 benchmark.py --base-url http://YOUR_VM_IP:5000) Tj
+1 0 0 1 50 488 Tm
+(```) Tj
+1 0 0 1 50 474 Tm
+() Tj
+1 0 0 1 50 460 Tm
+(AVERAGE LATENCY RESULTS) Tj
+1 0 0 1 50 446 Tm
+() Tj
+1 0 0 1 50 432 Tm
+(* Average latency for `/insert-fast`: `_____ ms`) Tj
+1 0 0 1 50 418 Tm
+(* Average latency for `/insert-safe`: `_____ ms`) Tj
+1 0 0 1 50 404 Tm
+() Tj
+1 0 0 1 50 390 Tm
+(The expected result is that `/insert-fast` is faster because `WriteConcern\(w=1\)` only) Tj
+1 0 0 1 50 376 Tm
+(waits for acknowledgment from the primary node, while `/insert-safe` uses) Tj
+1 0 0 1 50 362 Tm
+(`WriteConcern\(w="majority"\)` and must wait for replication to the majority of the) Tj
+1 0 0 1 50 348 Tm
+(replica set before returning success.) Tj
+1 0 0 1 50 334 Tm
+() Tj
+1 0 0 1 50 320 Tm
+(CAP-THEOREM-BASED ANALYSIS) Tj
+1 0 0 1 50 306 Tm
+() Tj
+1 0 0 1 50 292 Tm
+(A good real-world example for choosing the faster primary-only write is user-behavior) Tj
+1 0 0 1 50 278 Tm
+(analytics, such as recording ad impressions, page-view events, or recommendation-click) Tj
+1 0 0 1 50 264 Tm
+(logs. These events are high volume and latency sensitive, and losing a very small) Tj
+1 0 0 1 50 250 Tm
+(number of records during a rare primary crash is usually acceptable. In that case,) Tj
+1 0 0 1 50 236 Tm
+(lower write latency and higher throughput are more valuable than strict durability for) Tj
+1 0 0 1 50 222 Tm
+(every single event.) Tj
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 8 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 1 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 >>
+endobj
+9 0 obj
+<< /Type /Catalog /Pages 8 0 R >>
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000077 00000 n 
+0000002970 00000 n 
+0000003096 00000 n 
+0000005768 00000 n 
+0000005894 00000 n 
+0000008307 00000 n 
+0000008433 00000 n 
+0000008502 00000 n 
+trailer
+<< /Size 10 /Root 9 0 R >>
+startxref
+8551
+%%EOF
