@@ -1,130 +1,93 @@
 import os
-from typing import Any
 
-from bson import ObjectId
-from dotenv import load_dotenv
 from flask import Flask, jsonify, request
-from pymongo import MongoClient
-from pymongo.errors import PyMongoError
-from pymongo.read_preferences import ReadPreference
-from pymongo.write_concern import WriteConcern
-
-
-load_dotenv()
+from pymongo import MongoClient, ReadPreference, WriteConcern
 
 app = Flask(__name__)
 
+mongo_uri = os.getenv("MONGO_URI", "mongodb+srv://jackj6_db_user:dyt2Z6ctoqa2S8WT@cluster0.wcvw3dm.mongodb.net/?appName=Cluster0")
+db_name = "ev_db"
+collection_name = "vehicles"
 
-def get_client() -> MongoClient:
-    mongodb_uri = os.getenv("MONGODB_URI")
-    if not mongodb_uri:
-        raise RuntimeError("MONGODB_URI is not set.")
-    return MongoClient(mongodb_uri)
-
-
-def get_collection():
-    client = get_client()
-    db_name = os.getenv("MONGODB_DB", "ev_db")
-    collection_name = os.getenv("MONGODB_COLLECTION", "vehicles")
-    return client[db_name][collection_name]
+client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
+db = client[db_name]
+cars = db[collection_name]
 
 
-def normalize_document(data: dict[str, Any]) -> dict[str, Any]:
-    document = {}
-    for key, value in data.items():
-        if isinstance(value, str):
-            value = value.strip()
-            if value == "":
-                value = None
-        document[key] = value
-    return document
+def _clean_make(payload):
+    if "make" in payload and payload["make"] is not None:
+        raw_make = str(payload["make"])
+        payload["make"] = raw_make.strip().upper()
+    return payload
 
 
-def make_json_safe(value: Any) -> Any:
-    if isinstance(value, ObjectId):
-        return str(value)
-    if isinstance(value, dict):
-        return {key: make_json_safe(val) for key, val in value.items()}
-    if isinstance(value, list):
-        return [make_json_safe(item) for item in value]
-    return value
-
-
-@app.get("/healthz")
-def healthcheck():
-    return jsonify({"status": "ok"})
-
-
-@app.post("/insert-fast")
+@app.route("/insert-fast", methods=["POST"])
 def insert_fast():
-    payload = request.get_json(silent=True)
-    if not isinstance(payload, dict):
-        return jsonify({"error": "Request body must be a JSON object."}), 400
+    body = request.get_json()
 
-    document = normalize_document(payload)
+    if not body:
+        return jsonify({"error": "Invalid JSON payload"}), 400
 
-    try:
-        collection = get_collection().with_options(write_concern=WriteConcern(w=1))
-        result = collection.insert_one(document)
-        return jsonify({"inserted_id": str(result.inserted_id)}), 201
-    except (PyMongoError, RuntimeError) as exc:
-        return jsonify({"error": str(exc)}), 500
+    body = _clean_make(body)
+
+    # fast write, not being too fancy here
+    quick_collection = cars.with_options(write_concern=WriteConcern(w=1))
+
+    insert_result = quick_collection.insert_one(body)
+    new_id = str(insert_result.inserted_id)
+
+    return jsonify({"inserted_id": new_id}), 200
 
 
-@app.post("/insert-safe")
+@app.route("/insert-safe", methods=["POST"])
 def insert_safe():
-    payload = request.get_json(silent=True)
-    if not isinstance(payload, dict):
-        return jsonify({"error": "Request body must be a JSON object."}), 400
+    body = request.get_json()
 
-    document = normalize_document(payload)
+    if not body:
+        return jsonify({"error": "Invalid JSON payload"}), 400
 
-    try:
-        collection = get_collection().with_options(
-            write_concern=WriteConcern(w="majority")
-        )
-        result = collection.insert_one(document)
-        return jsonify({"inserted_id": str(result.inserted_id)}), 201
-    except (PyMongoError, RuntimeError) as exc:
-        return jsonify({"error": str(exc)}), 500
+    body = _clean_make(body)
+
+    safer_collection = cars.with_options(
+        write_concern=WriteConcern(w="majority")
+    )
+
+    saved = safer_collection.insert_one(body)
+    saved_id = str(saved.inserted_id)
+
+    return jsonify({"inserted_id": saved_id}), 200
 
 
-@app.get("/count-tesla-primary")
+@app.route("/count-tesla-primary", methods=["GET"])
 def count_tesla_primary():
-    try:
-        collection = get_collection().with_options(
-            read_preference=ReadPreference.PRIMARY
-        )
-        total_count = collection.count_documents({"Make": "TESLA"})
-        return jsonify({"count": total_count})
-    except (PyMongoError, RuntimeError) as exc:
-        return jsonify({"error": str(exc)}), 500
+    main_reader = cars.with_options(read_preference=ReadPreference.PRIMARY)
+
+    tesla_filter = {"make": "TESLA"}
+    total = main_reader.count_documents(tesla_filter)
+
+    return jsonify({"count": total}), 200
 
 
-@app.get("/count-bmw-secondary")
+@app.route("/count-bmw-secondary", methods=["GET"])
 def count_bmw_secondary():
-    try:
-        collection = get_collection().with_options(
-            read_preference=ReadPreference.SECONDARY
-        )
-        total_count = collection.count_documents({"Make": "BMW"})
-        return jsonify({"count": total_count})
-    except (PyMongoError, RuntimeError) as exc:
-        return jsonify({"error": str(exc)}), 500
+    backup_reader = cars.with_options(read_preference=ReadPreference.SECONDARY)
+
+    bmw_filter = {"make": "BMW"}
+    total = backup_reader.count_documents(bmw_filter)
+
+    return jsonify({"count": total}), 200
 
 
-@app.get("/sample")
-def sample_document():
-    try:
-        collection = get_collection()
-        document = collection.find_one()
-        if not document:
-            return jsonify({"document": None})
-        return jsonify({"document": make_json_safe(document)})
-    except (PyMongoError, RuntimeError) as exc:
-        return jsonify({"error": str(exc)}), 500
+@app.route("/", methods=["GET"])
+def home():
+    # basic heartbeat route
+    return jsonify({"message": "API is running"}), 200
 
+
+# old local test
+# app.run(debug=True)
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", "5000"))
-    app.run(host="0.0.0.0", port=port, debug=False)
+    host = "0.0.0.0"
+    port = 5000
+    app.run(host=host, port=port, debug=False)
