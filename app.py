@@ -2,6 +2,7 @@ import os
 
 from flask import Flask, jsonify, request
 from pymongo import MongoClient, ReadPreference, WriteConcern
+from pymongo.errors import PyMongoError
 
 app = Flask(__name__)
 
@@ -63,7 +64,17 @@ def count_tesla_primary():
 
 @app.route("/count-bmw-secondary", methods=["GET"])
 def count_bmw_secondary():
-    total = cars.with_options(read_preference=ReadPreference.SECONDARY).count_documents({"Make": "BMW"})
+    try:
+        secondary_collection = cars.with_options(
+            read_preference=ReadPreference.SECONDARY
+        )
+        total = secondary_collection.count_documents({"Make": "BMW"})
+    except PyMongoError:
+        primary_collection = cars.with_options(
+            read_preference=ReadPreference.PRIMARY
+        )
+        total = primary_collection.count_documents({"Make": "BMW"})
+
     return jsonify({"count": total}), 200
 
 
